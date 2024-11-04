@@ -24,6 +24,10 @@ if 'date' in data.columns:
     data['date'] = pd.to_datetime(data['date'], errors='coerce')
     data['date'] = data['date'].map(lambda x: x.toordinal() if pd.notnull(x) else 0)
 
+# Encode the 'rf' column if it exists
+if 'rf' in data.columns:
+    data['rf'] = label_encoder.fit_transform(data['rf'])
+
 # Check which columns have NaN after conversion
 print(data.isnull().sum())
 
