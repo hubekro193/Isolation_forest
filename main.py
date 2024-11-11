@@ -40,3 +40,5 @@ X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 
 print("Data is ready to be used with the machine learning algorithm.")
+print("X_train shape:", X_train.shape)
+print("X_test shape:", X_test.shape)
