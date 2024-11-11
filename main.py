@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 # Load the data
-data = pd.read_csv('pone.0309427.s001.csv')
+data = pd.read_csv('journal.pone.0309427.s001.csv')
 
 # Fill missing values
 data.fillna(data.mean(numeric_only=True), inplace=True)
