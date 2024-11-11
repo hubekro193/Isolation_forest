@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 # Load the data
-data = pd.read_csv('pone.0309427.s001.csv')
+data = pd.read_csv('journal.pone.0309427.s001.csv')
 
 # Fill missing values
 data.fillna(data.mean(numeric_only=True), inplace=True)
@@ -23,6 +23,10 @@ if 'discipline' in data.columns:
 if 'date' in data.columns:
     data['date'] = pd.to_datetime(data['date'], errors='coerce')
     data['date'] = data['date'].map(lambda x: x.toordinal() if pd.notnull(x) else 0)
+
+# Encode the 'rf' column if it exists
+if 'rf' in data.columns:
+    data['rf'] = label_encoder.fit_transform(data['rf'])
 
 # Check which columns have NaN after conversion
 print(data.isnull().sum())
