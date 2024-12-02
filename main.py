@@ -41,8 +41,6 @@
 # •  z4 – tętno na poziomie progu tlenowo-beztlenowego,
 # •  z5 – tętno w strefie wytrzymałości beztlenowej.
 
-
-
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -50,125 +48,131 @@ from sklearn.ensemble import IsolationForest
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import time
 
-# Load the data
-data = pd.read_csv('journal.pone.0309427.s001.csv')
+def measure_time(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Funkcja '{func.__name__}' wykonała się w czasie: {elapsed_time:.6f} sekund")
+        return result
+    return wrapper
 
+@measure_time
+def load_and_inspect_data(file_path):
+    """
+    Load the data and display initial statistics.
+    """
+    data = pd.read_csv(file_path)
+    print("Liczba pustych wartości w kolumnach do sprawdzenia:")
+    columns_to_check = ['hr_14', 'la_14', 'hr_16', 'la_16', 'hr_18', 'la_18', 'hr_20', 'la_20', 'hr_22', 'la_22']
+    empty_counts = data[columns_to_check].isnull().sum()
+    print(empty_counts)
+    print("\nWartość % pustych pozycji w kolumnach:")
+    print((empty_counts / len(data)) * 100)
+    return data
 
-#check how many empty rows
-columns_to_check = ['hr_14', 'la_14', 'hr_16', 'la_16', 'hr_18', 'la_18', 'hr_20', 'la_20', 'hr_22', 'la_22']
-empty_counts = data[columns_to_check].isnull().sum()
-filled_counts = data[columns_to_check].notnull().sum()
-print("Liczba pustych wartości w kolumnach:")
-print(empty_counts)
-print("\nLiczba wypełnionych wartości w kolumnach:")
-print(filled_counts)
-print("\nWartość % pustych pozycji w kolumnach:")
-print( (empty_counts/len(data))*100 )
+@measure_time
+def clean_data(data):
+    """
+    Clean and preprocess the dataset.
+    """
+    # Drop unnecessary columns
+    columns_to_drop = ['date', 'hr_6', 'la_6', 'hr_16', 'la_16', 'hr_18', 'la_18', 'hr_20', 'la_20', 'hr_22', 'la_22']
+    data.drop(columns_to_drop, axis=1, inplace=True)
 
-while True:
-    answer = input("Czy chcesz kontynuować? (Y/N): ").strip().upper()  # Pobierz odpowiedź i przetwórz ją
-    if answer == 'Y':
-        print("Kontynuujemy program...")
-        break  # Wyjdź z pętli, aby kontynuować
-    elif answer == 'N':
-        print("Kończymy program.")
-        exit()  # Zakończ program
-    else:
-        print("Nieprawidłowa odpowiedź. Wpisz 'Y' lub 'N'.")
+    # Fill missing numeric values with column means
+    data.fillna(data.mean(numeric_only=True), inplace=True)
 
-# Drop unnecessary columns
-# hr_6 and la_6 - The study did not measure lactate at a speed of 6 km/h because the exercise test started at a speed of 8 km/h.
-columns_to_drop = ['date', 'hr_6', 'la_6','hr_16', 'la_16', 'hr_18', 'la_18', 'hr_20', 'la_20', 'hr_22', 'la_22']
-data.drop(columns_to_drop, axis=1, inplace=True)
+    # Encode categorical columns
+    label_encoder = LabelEncoder()
+    for col in ['sex', 'discipline', 'rf']:
+        if col in data.columns:
+            data[col] = label_encoder.fit_transform(data[col])
 
-# Fill in column 'la_6' with value 0
-# - The study did not measure lactate at a speed of 6 km/h because the exercise test started at a speed of 8 km/h.
-#   Probably no presence of lactic acid at a speed of 6 km/h
-#data['la_6'] = 0
+    return data
 
+@measure_time
+def prepare_data(data):
+    """
+    Split the data into features and labels, and apply scaling.
+    """
+    X = data.drop(columns=['AeT', 'AnT'])
+    y = data[['AeT', 'AnT']]
 
-# Fill missing values
-data.fillna(data.mean(numeric_only=True), inplace=True)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2137)
 
-# Transform text columns into numeric values
-label_encoder = LabelEncoder()
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
 
-# Transform the 'sex' column
-if 'sex' in data.columns:
-    data['sex'] = label_encoder.fit_transform(data['sex'])
+    return X_train, X_test, y_train, y_test, scaler
 
-# Transform the 'discipline' column
-if 'discipline' in data.columns:
-    data['discipline'] = label_encoder.fit_transform(data['discipline'])
+@measure_time
+def train_isolation_forest(X_train, contamination=0.103, n_estimators=500):
+    """
+    Train the Isolation Forest model.
+    """
+    model = IsolationForest(n_estimators=n_estimators, contamination=contamination, random_state=2137)
+    model.fit(X_train)
+    return model
 
-# date column has been dropped
-# # Convert the date column
-# if 'date' in data.columns:
-#     data['date'] = pd.to_datetime(data['date'], errors='coerce')
-#     data['date'] = data['date'].map(lambda x: x.toordinal() if pd.notnull(x) else 0)
-
-# Encode the 'rf' column if it exists
-if 'rf' in data.columns:
-    data['rf'] = label_encoder.fit_transform(data['rf'])
-
-# Encode the 'rf' column if it exists
-if 'rf' in data.columns:
-    data['rf'] = label_encoder.fit_transform(data['rf'])
-
-# Check which columns have NaN after conversion
-print(data.isnull().sum())
-
-# Prepare features and labels
-X = data.drop(columns=['AeT', 'AnT'])  # Parameters on which the prediction is based
-y = data[['AeT', 'AnT']]  # We are looking for aerobic (AeT) and anaerobic (AnT) thresholds
-
-# Split into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2137)
-
-# Scale the data
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
-
-print("Data is ready to be used with the machine learning algorithm.")
-print("X_train shape:", X_train.shape)
-print("X_test shape:", X_test.shape)
-
-# Etykiety
-X = data.drop(columns=['AeT', 'AnT'])
-y = data[['AeT', 'AnT']]
-
-# Podział na test i train
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2137)
-
-# Skalowanie danych
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
-
-print("Dane gotowe do użycia w algorytmie uczenia maszynowego.")
-print("X_train shape:", X_train.shape)
-print("X_test shape:", X_test.shape)
+@measure_time
+def detect_anomalies(data, model, scaler):
+    """
+    Detect anomalies using the trained model.
+    """
+    data_for_prediction = data.drop(columns=['AeT', 'AnT'])
+    data['anomaly'] = np.where(model.predict(scaler.transform(data_for_prediction)) == -1, 1, 0)
+    data['anomaly_label'] = data['anomaly'].map({1: 'Anomaly', 0: 'Normal'})
+    return data
 
 
-n_estimators = 500 #liczba drzew
-contamination = 0.103
+def plot_anomalies(data, feature_x, feature_y):
+    """
+    Visualize anomalies using a scatter plot.
+    """
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(
+        data=data,
+        x=feature_x,
+        y=feature_y,
+        hue='anomaly_label',
+        palette={'Normal': 'blue', 'Anomaly': 'red'},
+        alpha=0.7
+    )
+    plt.title("Wykrywanie anomalii - Isolation Forest", fontsize=14)
+    plt.xlabel(feature_x, fontsize=12)
+    plt.ylabel(feature_y, fontsize=12)
+    plt.legend(title='Typ')
+    plt.grid(True)
+    plt.show()
 
-# Trening czyni mistrza
+file_path = 'journal.pone.0309427.s001.csv'
 
-iso_forest = IsolationForest(n_estimators=n_estimators, contamination=contamination, random_state=2137)
-iso_forest.fit(X_train)
+# Load and inspect data
+data = load_and_inspect_data(file_path)
 
-data_for_prediction = data.drop(columns=['AeT', 'AnT'])
-data['anomaly'] = np.where(iso_forest.predict(scaler.transform(data_for_prediction)) == -1, 1, 0)
+# Clean and preprocess the data
+data = clean_data(data)
 
-# Wykaz i przedstawienie wyników
+# Prepare data for model training
+X_train, X_test, y_train, y_test, scaler = prepare_data(data)
 
+# Train Isolation Forest
+iso_forest = train_isolation_forest(X_train)
+
+# Detect anomalies
+data = detect_anomalies(data, iso_forest, scaler)
+
+# Display summary
 print("\nPodsumowanie wyników:")
 print(f"Liczba anomalii: {data['anomaly'].sum()}")
 print(f"Liczba normalnych: {len(data) - data['anomaly'].sum()}")
 
+# Optionally display anomalies
 while True:
     show_anomalies = input("Czy chcesz zobaczyć wykryte anomalie? (Y/N): ").strip().upper()
     if show_anomalies == 'Y':
@@ -182,23 +186,5 @@ while True:
     else:
         print("Nieprawidłowa odpowiedź. Wpisz 'Y' lub 'N'.")
 
-data['anomaly_label'] = data['anomaly'].map({1: 'Anomaly', 0: 'Normal'})
-
-feature_x = 'vo2max'
-feature_y = 'hrmax'
-
-plt.figure(figsize=(10, 6))
-sns.scatterplot(
-    data=data,
-    x=feature_x,
-    y=feature_y,
-    hue='anomaly_label',
-    palette={'Normal': 'blue', 'Anomaly': 'red'},
-    alpha=0.7
-)
-plt.title("Wykrywanie anomalii - Isolation Forest", fontsize=14)
-plt.xlabel(feature_x, fontsize=12)
-plt.ylabel(feature_y, fontsize=12)
-plt.legend(title='Typ')
-plt.grid(True)
-plt.show()
+# Visualize anomalies
+plot_anomalies(data, feature_x='vo2max', feature_y='hrmax')
