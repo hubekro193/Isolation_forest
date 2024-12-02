@@ -50,6 +50,7 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 # Load the data
 data = pd.read_csv('journal.pone.0309427.s001.csv')
 
+
 #check how many empty rows
 columns_to_check = ['hr_14', 'la_14', 'hr_16', 'la_16', 'hr_18', 'la_18', 'hr_20', 'la_20', 'hr_22', 'la_22']
 empty_counts = data[columns_to_check].isnull().sum()
@@ -82,6 +83,7 @@ data.drop(columns_to_drop, axis=1, inplace=True)
 #   Probably no presence of lactic acid at a speed of 6 km/h
 #data['la_6'] = 0
 
+
 # Fill missing values
 data.fillna(data.mean(numeric_only=True), inplace=True)
 
@@ -101,6 +103,10 @@ if 'discipline' in data.columns:
 # if 'date' in data.columns:
 #     data['date'] = pd.to_datetime(data['date'], errors='coerce')
 #     data['date'] = data['date'].map(lambda x: x.toordinal() if pd.notnull(x) else 0)
+
+# Encode the 'rf' column if it exists
+if 'rf' in data.columns:
+    data['rf'] = label_encoder.fit_transform(data['rf'])
 
 # Encode the 'rf' column if it exists
 if 'rf' in data.columns:
