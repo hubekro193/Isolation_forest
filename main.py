@@ -46,6 +46,10 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import IsolationForest
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Load the data
 data = pd.read_csv('journal.pone.0309427.s001.csv')
@@ -130,3 +134,71 @@ X_test = scaler.transform(X_test)
 print("Data is ready to be used with the machine learning algorithm.")
 print("X_train shape:", X_train.shape)
 print("X_test shape:", X_test.shape)
+
+# Etykiety
+X = data.drop(columns=['AeT', 'AnT'])
+y = data[['AeT', 'AnT']]
+
+# Podział na test i train
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2137)
+
+# Skalowanie danych
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+print("Dane gotowe do użycia w algorytmie uczenia maszynowego.")
+print("X_train shape:", X_train.shape)
+print("X_test shape:", X_test.shape)
+
+
+n_estimators = 500 #liczba drzew
+contamination = 0.103
+
+# Trening czyni mistrza
+
+iso_forest = IsolationForest(n_estimators=n_estimators, contamination=contamination, random_state=2137)
+iso_forest.fit(X_train)
+
+data_for_prediction = data.drop(columns=['AeT', 'AnT'])
+data['anomaly'] = np.where(iso_forest.predict(scaler.transform(data_for_prediction)) == -1, 1, 0)
+
+# Wykaz i przedstawienie wyników
+
+print("\nPodsumowanie wyników:")
+print(f"Liczba anomalii: {data['anomaly'].sum()}")
+print(f"Liczba normalnych: {len(data) - data['anomaly'].sum()}")
+
+while True:
+    show_anomalies = input("Czy chcesz zobaczyć wykryte anomalie? (Y/N): ").strip().upper()
+    if show_anomalies == 'Y':
+        anomalies = data[data['anomaly'] == 1]
+        print("Wykryte anomalie:")
+        print(anomalies)
+        break
+    elif show_anomalies == 'N':
+        print("Anomalie nie zostaną wyświetlone.")
+        break
+    else:
+        print("Nieprawidłowa odpowiedź. Wpisz 'Y' lub 'N'.")
+
+data['anomaly_label'] = data['anomaly'].map({1: 'Anomaly', 0: 'Normal'})
+
+feature_x = 'vo2max'
+feature_y = 'hrmax'
+
+plt.figure(figsize=(10, 6))
+sns.scatterplot(
+    data=data,
+    x=feature_x,
+    y=feature_y,
+    hue='anomaly_label',
+    palette={'Normal': 'blue', 'Anomaly': 'red'},
+    alpha=0.7
+)
+plt.title("Wykrywanie anomalii - Isolation Forest", fontsize=14)
+plt.xlabel(feature_x, fontsize=12)
+plt.ylabel(feature_y, fontsize=12)
+plt.legend(title='Typ')
+plt.grid(True)
+plt.show()
