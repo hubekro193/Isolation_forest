@@ -50,6 +50,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import time
 
+
 def measure_time(func):
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -58,7 +59,9 @@ def measure_time(func):
         elapsed_time = end_time - start_time
         print(f"Funkcja '{func.__name__}' wykonała się w czasie: {elapsed_time:.6f} sekund")
         return result
+
     return wrapper
+
 
 @measure_time
 def load_and_inspect_data(file_path):
@@ -73,6 +76,7 @@ def load_and_inspect_data(file_path):
     print("\nWartość % pustych pozycji w kolumnach:")
     print((empty_counts / len(data)) * 100)
     return data
+
 
 @measure_time
 def clean_data(data):
@@ -94,6 +98,7 @@ def clean_data(data):
 
     return data
 
+
 @measure_time
 def prepare_data(data):
     """
@@ -110,6 +115,7 @@ def prepare_data(data):
 
     return X_train, X_test, y_train, y_test, scaler
 
+
 @measure_time
 def train_isolation_forest(X_train, contamination=0.103, n_estimators=500):
     """
@@ -118,6 +124,7 @@ def train_isolation_forest(X_train, contamination=0.103, n_estimators=500):
     model = IsolationForest(n_estimators=n_estimators, contamination=contamination, random_state=2137)
     model.fit(X_train)
     return model
+
 
 @measure_time
 def detect_anomalies(data, model, scaler):
@@ -150,6 +157,7 @@ def plot_anomalies(data, feature_x, feature_y):
     plt.grid(True)
     plt.show()
 
+
 file_path = 'journal.pone.0309427.s001.csv'
 
 # Load and inspect data
@@ -169,8 +177,11 @@ data = detect_anomalies(data, iso_forest, scaler)
 
 # Display summary
 print("\nPodsumowanie wyników:")
+print(f"Liczba próbek: {len(data)}")
 print(f"Liczba anomalii: {data['anomaly'].sum()}")
 print(f"Liczba normalnych: {len(data) - data['anomaly'].sum()}")
+print(f"Odsetek anomalii: {data['anomaly'].mean() * 100:.2f}%")
+print(f"Odsetek normalnych: {(1 - data['anomaly'].mean()) * 100:.2f}%")
 
 # Optionally display anomalies
 while True:
