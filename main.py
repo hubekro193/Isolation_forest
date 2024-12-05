@@ -90,6 +90,9 @@ def clean_data(data):
     # Fill missing numeric values with column means
     data.fillna(data.mean(numeric_only=True), inplace=True)
 
+    if 'discipline' in data.columns:
+        data['discipline_original'] = data['discipline']
+
     # Encode categorical columns
     label_encoder = LabelEncoder()
     for col in ['sex', 'discipline', 'rf']:
@@ -104,7 +107,7 @@ def prepare_data(data):
     """
     Split the data into features and labels, and apply scaling.
     """
-    X = data.drop(columns=['AeT', 'AnT'])
+    X = data.drop(columns=['AeT', 'AnT', 'discipline_original'])
     y = data[['AeT', 'AnT']]
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2137)
@@ -131,7 +134,7 @@ def detect_anomalies(data, model, scaler):
     """
     Detect anomalies using the trained model.
     """
-    data_for_prediction = data.drop(columns=['AeT', 'AnT'])
+    data_for_prediction = data.drop(columns=['AeT', 'AnT', 'discipline_original'])
     data['anomaly'] = np.where(model.predict(scaler.transform(data_for_prediction)) == -1, 1, 0)
     data['anomaly_label'] = data['anomaly'].map({1: 'Anomaly', 0: 'Normal'})
     return data
@@ -139,9 +142,9 @@ def detect_anomalies(data, model, scaler):
 
 def plot_anomalies(data, feature_x, feature_y):
     """
-    Visualize anomalies using a scatter plot.
+    Visualize anomalies using a scatter plot and annotate anomalies with their discipline.
     """
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(12, 8))
     sns.scatterplot(
         data=data,
         x=feature_x,
@@ -155,6 +158,19 @@ def plot_anomalies(data, feature_x, feature_y):
     plt.ylabel(feature_y, fontsize=12)
     plt.legend(title='Typ')
     plt.grid(True)
+
+    _anomalies = data[data['anomaly_label'] == 'Anomaly']
+    for _, row in _anomalies.iterrows():
+        plt.annotate(
+            row['discipline_original'],
+            (row[feature_x], row[feature_y]),
+            textcoords="offset points",
+            xytext=(5, 5),
+            ha='left',
+            fontsize=9,
+            color='black'
+        )
+
     plt.show()
 
 
@@ -188,6 +204,9 @@ while True:
     show_anomalies = input("Czy chcesz zobaczyć wykryte anomalie? (Y/N): ").strip().upper()
     if show_anomalies == 'Y':
         anomalies = data[data['anomaly'] == 1]
+        discipline_summary = anomalies.groupby('discipline_original').size()
+        print("Liczba anomalii w każdej dyscyplinie:")
+        print(discipline_summary)
         print("Wykryte anomalie:")
         print(anomalies)
         break
