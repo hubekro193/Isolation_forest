@@ -42,6 +42,7 @@
 # •  z5 – tętno w strefie wytrzymałości beztlenowej.
 
 import pandas as pd
+from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.ensemble import IsolationForest
@@ -174,6 +175,47 @@ def plot_anomalies(data, feature_x, feature_y):
     plt.show()
 
 
+@measure_time
+def evaluate_model_with_labels(data, model, scaler, ground_truth_col='ground_truth'):
+    """
+    Ocena modelu Isolation Forest za pomocą klasycznych metryk, gdy dostępne są prawdziwe etykiety.
+    """
+    data_for_prediction = data.drop(columns=['AeT', 'AnT', 'anomaly', 'anomaly_label'], errors='ignore')
+    predictions = model.predict(scaler.transform(data_for_prediction))
+    predictions = np.where(predictions == -1, 1, 0)  # Konwersja -1 na 1 (anomalie) i 1 na 0 (normalne)
+
+    ground_truth = data[ground_truth_col]
+    print("Confusion Matrix:")
+    print(confusion_matrix(ground_truth, predictions))
+
+    print("\nClassification Report:")
+    print(classification_report(ground_truth, predictions))
+
+
+@measure_time
+def evaluate_model_without_labels(data):
+    """
+    Ocena modelu bez etykiet: analiza proporcji anomalii i ich rozkładu.
+    """
+    num_anomalies = data['anomaly'].sum()
+    total_observations = len(data)
+    anomaly_ratio = num_anomalies / total_observations
+
+    #Już raz wyświetlone te metryki
+    #print("Liczba anomalii:", num_anomalies)
+    #print("Liczba normalnych obserwacji:", total_observations - num_anomalies)
+    #print("Proporcja anomalii w danych: {:.2%}".format(anomaly_ratio))
+
+    # Wizualizacja histogramu proporcji
+    plt.figure(figsize=(8, 5))
+    sns.countplot(data=data, x='anomaly_label', palette={'Normal': 'blue', 'Anomaly': 'red'})
+    plt.title("Rozkład normalnych i anomalii")
+    plt.xlabel("Typ")
+    plt.ylabel("Liczba obserwacji")
+    plt.grid(True, axis='y')
+    plt.show()
+
+
 file_path = 'journal.pone.0309427.s001.csv'
 
 # Load and inspect data
@@ -218,3 +260,10 @@ while True:
 
 # Visualize anomalies
 plot_anomalies(data, feature_x='vo2max', feature_y='hrmax')
+
+# Evaluate model without labels
+evaluate_model_without_labels(data)
+
+# If ground truth labels are available, use the evaluation with labels
+if 'ground_truth' in data.columns:
+    evaluate_model_with_labels(data, iso_forest, scaler, ground_truth_col='ground_truth')
